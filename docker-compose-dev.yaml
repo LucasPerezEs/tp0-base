@@ -22,6 +22,7 @@ services:
     depends_on:
       - server
 
+
 networks:
   testing_net:
     ipam:
