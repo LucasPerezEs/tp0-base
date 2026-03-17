@@ -6,7 +6,6 @@ services:
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
-      - LOGGING_LEVEL=DEBUG
     networks:
       - testing_net
     volumes:
@@ -18,14 +17,12 @@ services:
     entrypoint: /app/client
     environment:
       - CLI_ID=1
-      - CLI_LOG_LEVEL=DEBUG
     networks:
       - testing_net
     volumes:
       - ./client/config.yaml:/app/config.yaml:ro
     depends_on:
       - server
-
 
 networks:
   testing_net:
