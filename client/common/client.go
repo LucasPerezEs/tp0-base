@@ -37,14 +37,18 @@ func NewClient(config ClientConfig) *Client {
 
 // CreateClientSocket Initializes client socket. In case of
 // failure, error is printed in stdout/stderr and returned to the caller
-func (c *Client) createClientSocket() (net.Conn, error) {
+func (c *Client) createClientSocket() error {
 	conn, err := net.Dial("tcp", c.config.ServerAddress)
 	if err != nil {
-		log.Debugf("action: connect | result: fail | client_id: %v | error: %v",
-            c.config.ID, err)
-		return nil, err
+		log.Criticalf(
+			"action: connect | result: fail | client_id: %v | error: %v",
+			c.config.ID,
+			err,
+		)
+		return err
 	}
-	return conn, nil
+	c.conn = conn
+	return nil
 }
 
 
@@ -56,25 +60,23 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal) {
 		select {
 
 		case <-signalChannel:
-			log.Infof("action: signal_received | result: success | client_id: %v", c.config.ID)
+			log.Infof("action: shutdown | result: success | client_id: %v", c.config.ID)
 			return
 
 		default:
 			// Create the connection the server in every loop iteration.
-			conn, err := c.createClientSocket()
-			if err != nil {
+			if err := c.createClientSocket(); err != nil {
 				time.Sleep(c.config.LoopPeriod) // Wait before retrying to avoid busy loop
 				return
 			}
 
-			defer conn.Close()
-
 			// TODO: Modify the send to avoid short-write
-			if _, err := fmt.Fprintf(conn, "[CLIENT %v] Message N°%v\n", c.config.ID, msgID); err != nil {
+			if _, err := fmt.Fprintf(c.conn, "[CLIENT %v] Message N°%v\n", c.config.ID, msgID); err != nil {
 				log.Errorf("action: send_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
 				return
 			}
-			msg, err := bufio.NewReader(conn).ReadString('\n')
+			msg, err := bufio.NewReader(c.conn).ReadString('\n')
+			c.conn.Close()
 
 			if err != nil {
 				log.Errorf("action: receive_message | result: fail | client_id: %v | error: %v",
