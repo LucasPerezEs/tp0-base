@@ -41,11 +41,6 @@ func NewClient(config ClientConfig) *Client {
 func (c *Client) createClientSocket() (net.Conn, error) {
 	conn, err := net.Dial("tcp", c.config.ServerAddress)
 	if err != nil {
-		log.Criticalf(
-			"action: connect | result: fail | client_id: %v | error: %v",
-			c.config.ID,
-			err,
-		)
 		return nil, err
 	}
 	return conn, nil
@@ -62,12 +57,10 @@ func (c *Client) sendMessage(msgID int) {
 	defer conn.Close()
 
 	// TODO: Modify the send to avoid short-write
-	fmt.Fprintf(
-		conn,
-		"[CLIENT %v] Message N°%v\n",
-		c.config.ID,
-		msgID,
-	)
+	if _, err := fmt.Fprintf(conn, "[CLIENT %v] Message N°%v\n", c.config.ID, msgID); err != nil {
+		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
 	msg, err := bufio.NewReader(conn).ReadString('\n')
 
 	if err != nil {
@@ -96,6 +89,9 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal) {
 		default:
 			// Continue with the loop
 			c.sendMessage(msgID)
+
+			// Wait a time between sending one message and the next one
+			time.Sleep(c.config.LoopPeriod)
 		}
 	}
 
