@@ -81,13 +81,13 @@ func (c *Client) sendMessage(msgID int) {
 	)
 }
 
-func (c *Client) StartClientLoop(doneChannel chan struct{}) {
+func (c *Client) StartClientLoop(signalChannel chan os.Signal) {
 
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
-		case <-doneChannel:
+		case <-signalChannel:
 			if c.conn != nil {
 				c.conn.Close()
 			}

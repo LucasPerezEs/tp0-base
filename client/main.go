@@ -107,15 +107,8 @@ func main() {
 
 	// Handle SIGTERM signal to gracefully shutdown the client
 	signalChannel := make(chan os.Signal, 1)
-	doneChannel := make(chan struct{})
 	
 	signal.Notify(signalChannel, syscall.SIGTERM)
-	
-	go func() {
-		<-signalChannel
-		close(doneChannel)
-	}()
-
 
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
@@ -125,5 +118,5 @@ func main() {
 	}
 
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop(doneChannel)
+	client.StartClientLoop(signalChannel)
 }
