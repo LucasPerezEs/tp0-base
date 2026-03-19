@@ -119,4 +119,7 @@ func main() {
 
 	client := common.NewClient(clientConfig)
 	client.StartClientLoop(signalChannel)
+
+	log.Infof("action: exit | result: success | client_id: %s", clientConfig.ID)
+	os.Exit(0)
 }

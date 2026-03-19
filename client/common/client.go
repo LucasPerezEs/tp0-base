@@ -84,7 +84,6 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal) {
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
 		case <-signalChannel:
-			log.Infof("action: loop_finished_by_signal | result: success | client_id: %v", c.config.ID)
 			return
 		default:
 			// Continue with the loop
