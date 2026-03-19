@@ -5,6 +5,8 @@ import (
 	"os"
 	"strings"
 	"time"
+	"os/signal"
+	"syscall"
 
 	"github.com/op/go-logging"
 	"github.com/pkg/errors"
@@ -103,6 +105,18 @@ func main() {
 	// Print program config with debugging purposes
 	PrintConfig(v)
 
+	// Handle SIGTERM signal to gracefully shutdown the client
+	signalChannel := make(chan os.Signal, 1)
+	doneChannel := make(chan struct{})
+	
+	signal.Notify(signalChannel, syscall.SIGTERM)
+	
+	go func() {
+		<-signalChannel
+		close(doneChannel)
+	}()
+
+
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            v.GetString("id"),
@@ -111,5 +125,5 @@ func main() {
 	}
 
 	client := common.NewClient(clientConfig)
-	client.StartClientLoop()
+	client.StartClientLoop(doneChannel)
 }

@@ -81,26 +81,16 @@ func (c *Client) sendMessage(msgID int) {
 	)
 }
 
-func (c *Client) StartClientLoop() {
-
-	// Handle SIGTERM signal to gracefully shutdown the client
-	signalChannel := make(chan os.Signal, 1)
-	doneChannel := make(chan struct{})
-
-	signal.Notify(signalChannel, syscall.SIGTERM)
-
-	go func() {
-		<-signalChannel
-		c.conn.Close()
-		log.Infof("action: shutdown_signal_received | result: success | client_id: %v", c.config.ID)
-		close(doneChannel)
-	}()
+func (c *Client) StartClientLoop(doneChannel chan struct{}) {
 
 	// There is an autoincremental msgID to identify every message sent
 	// Messages if the message amount threshold has not been surpassed
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
 		case <-doneChannel:
+			if c.conn != nil {
+				c.conn.Close()
+			}
 			log.Infof("action: loop_finished_by_signal | result: success | client_id: %v", c.config.ID)
 			return
 		default:
@@ -108,6 +98,6 @@ func (c *Client) StartClientLoop() {
 			c.sendMessage(msgID)
 		}
 	}
-	
+
 	log.Infof("action: loop_finished | result: success | client_id: %v", c.config.ID)
 }
