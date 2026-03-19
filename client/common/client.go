@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"net"
 	"time"
-	"os/signal"
-	"syscall"
+	"os"
 
 	"github.com/op/go-logging"
 )
