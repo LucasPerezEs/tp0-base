@@ -32,7 +32,7 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
-        signal.signal(signal.SIGTERM, self.handle_sigterm())
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
         while True:
             client_sock = self.__accept_new_connection()
