@@ -63,6 +63,7 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal) {
 			// Create the connection the server in every loop iteration.
 			conn, err := c.createClientSocket()
 			if err != nil {
+				time.Sleep(c.config.LoopPeriod) // Wait before retrying to avoid busy loop
 				return
 			}
 
