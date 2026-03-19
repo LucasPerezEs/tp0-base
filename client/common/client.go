@@ -41,17 +41,20 @@ func NewClient(config ClientConfig) *Client {
 func (c *Client) createClientSocket() (net.Conn, error) {
 	conn, err := net.Dial("tcp", c.config.ServerAddress)
 	if err != nil {
+		log.Debugf("action: connect | result: fail | client_id: %v | error: %v",
+            c.config.ID, err)
 		return nil, err
 	}
 	return conn, nil
 }
 
-func (c *Client) sendMessage(msgID int) {
+func (c *Client) sendMessage(msgID int) error {
 
 	// Create the connection the server in every loop iteration.
 	conn, err := c.createClientSocket()
 	if err != nil {
-		return
+		time.Sleep(100 * time.Millisecond) 
+		return err
 	}
 
 	defer conn.Close()
@@ -59,7 +62,7 @@ func (c *Client) sendMessage(msgID int) {
 	// TODO: Modify the send to avoid short-write
 	if _, err := fmt.Fprintf(conn, "[CLIENT %v] Message N°%v\n", c.config.ID, msgID); err != nil {
 		log.Errorf("action: send_message | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		return
+		return err
 	}
 	msg, err := bufio.NewReader(conn).ReadString('\n')
 
@@ -68,13 +71,15 @@ func (c *Client) sendMessage(msgID int) {
 			c.config.ID,
 			err,
 		)
-		return
+		return err
 	}
 
 	log.Infof("action: receive_message | result: success | client_id: %v | msg: %v",
 		c.config.ID,
 		msg,
 	)
+
+	return nil
 }
 
 func (c *Client) StartClientLoop(signalChannel chan os.Signal) {
@@ -83,11 +88,14 @@ func (c *Client) StartClientLoop(signalChannel chan os.Signal) {
 	// Messages if the message amount threshold has not been surpassed
 	for msgID := 1; msgID <= c.config.LoopAmount; msgID++ {
 		select {
+
 		case <-signalChannel:
 			return
+
 		default:
-			// Continue with the loop
-			c.sendMessage(msgID)
+			if err := c.sendMessage(msgID); err != nil {
+				return
+			}
 
 			// Wait a time between sending one message and the next one
 			time.Sleep(c.config.LoopPeriod)
