@@ -9,6 +9,7 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self._client_sockets = []
 
 
     def handle_sigterm(self):
@@ -20,6 +21,12 @@ class Server:
         """
         logging.info("action: shutdown_server | result: in_progress")
         self._server_socket.close()
+        logging.info("action: closed server socket | result: success")
+        
+        for client_sock in self._client_sockets:
+            client_sock.close()
+            logging.info("action: closed client socket | result: success")
+        
         logging.info("action: shutdown_server | result: success")
         exit(0)
 
@@ -36,6 +43,7 @@ class Server:
 
         while True:
             client_sock = self.__accept_new_connection()
+            self._client_sockets.append(client_sock)
             self.__handle_client_connection(client_sock)
 
     def __handle_client_connection(self, client_sock):
