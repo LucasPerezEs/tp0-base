@@ -47,6 +47,7 @@ func (c *Client) createClientSocket() error {
 			c.config.ID,
 			err,
 		)
+		return err
 	}
 	c.conn = conn
 	return nil
@@ -54,8 +55,11 @@ func (c *Client) createClientSocket() error {
 
 func (c *Client) sendMessage(msgID int) {
 
-	// Create the connection the server in every loop iteration. Send an
-	c.createClientSocket()
+	// Create the connection the server in every loop iteration.
+	err := c.createClientSocket()
+	if err != nil {
+		return
+	}
 
 	// TODO: Modify the send to avoid short-write
 	fmt.Fprintf(
