@@ -9,6 +9,7 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self._server_socket.settimeout(1)
         self._client_sockets = []
         self._running = True
 
@@ -60,6 +61,8 @@ class Server:
                 if client_sock:
                     self._client_sockets.append(client_sock)
                     self.__handle_client_connection(client_sock)
+            except socket.timeout:
+                continue  # vuelve al while y chequea _running
             except OSError as e:
                 break
 
