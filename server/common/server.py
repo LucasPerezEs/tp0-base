@@ -10,7 +10,7 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._client_sockets = []
-        self.running = False
+        self._running = False
 
 
     def handle_sigterm(self, signum, frame):
@@ -29,7 +29,7 @@ class Server:
         
         logging.info("action: closed server socket | result: success")
 
-        self.running = False
+        self._running = False
         
         for client_sock in self._client_sockets:
             try: 
@@ -53,9 +53,9 @@ class Server:
         """
 
         signal.signal(signal.SIGTERM, self.handle_sigterm)
-        self.running = True
+        self._running = True
 
-        while self.running:
+        while self._running:
             try:
                 client_sock = self.__accept_new_connection()
             except OSError as e:
@@ -92,7 +92,10 @@ class Server:
         """
 
         # Connection arrived
-        logging.info('action: accept_connections | result: in_progress')
-        c, addr = self._server_socket.accept()
-        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-        return c
+        try:
+            logging.info('action: accept_connections | result: in_progress')
+            c, addr = self._server_socket.accept()
+            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+            return c
+        except OSError as e:
+            return None
