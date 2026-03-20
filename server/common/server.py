@@ -12,7 +12,7 @@ class Server:
         self._client_sockets = []
 
 
-    def handle_sigterm(self):
+    def handle_sigterm(self, signum, frame):
         """
         Handle SIGTERM signal to gracefully shutdown the server
 
@@ -20,14 +20,24 @@ class Server:
         program exits
         """
         logging.info("action: shutdown_server | result: in_progress")
-        self._server_socket.close()
+        
+        try:
+            self._server_socket.close()
+        except OSError as e:
+            logging.error(f"action: closed server socket | result: fail | error: {e}")
+        
         logging.info("action: closed server socket | result: success")
         
         for client_sock in self._client_sockets:
-            client_sock.close()
+            try: 
+                client_sock.close()
+            except OSError as e:
+                logging.error(f"action: closed client socket | result: fail | error: {e}")
+            
             logging.info("action: closed client socket | result: success")
         
         logging.info("action: shutdown_server | result: success")
+        
         exit(0)
 
     def run(self):
@@ -42,7 +52,11 @@ class Server:
         signal.signal(signal.SIGTERM, self.handle_sigterm)
 
         while True:
-            client_sock = self.__accept_new_connection()
+            try:
+                client_sock = self.__accept_new_connection()
+            except OSError as e:
+                break
+            
             self._client_sockets.append(client_sock)
             self.__handle_client_connection(client_sock)
 
