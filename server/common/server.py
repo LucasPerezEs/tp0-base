@@ -52,8 +52,8 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
-        signal.signal(signal.SIGTERM, self.handle_sigterm)
         self._running = True
+        signal.signal(signal.SIGTERM, self.handle_sigterm)
 
         while self._running:
             try:
@@ -98,4 +98,4 @@ class Server:
             logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
             return c
         except OSError as e:
-            return None
+            raise
