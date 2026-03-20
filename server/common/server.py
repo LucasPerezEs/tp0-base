@@ -20,7 +20,7 @@ class Server:
         When SIGTERM signal is received, the server socket is closed and the
         program exits
         """
-        logging.info("action: shutdown_server | result: in_progress")
+        logging.info("action: shutdown | result: in_progress")
         
         self._running = False
 
@@ -40,7 +40,7 @@ class Server:
             
             logging.info("action: closed client socket | result: success")
         
-        logging.info("action: shutdown_server | result: success")
+        logging.info("action: shutdown | result: success")
         
 
     def run(self):
@@ -93,10 +93,7 @@ class Server:
         """
 
         # Connection arrived
-        try:
-            logging.info('action: accept_connections | result: in_progress')
-            c, addr = self._server_socket.accept()
-            logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
-            return c
-        except OSError as e:
-            logging.info(f"action: accept_connections | result: fail | error: {e}")
+        logging.info('action: accept_connections | result: in_progress')
+        c, addr = self._server_socket.accept()
+        logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
+        return c
