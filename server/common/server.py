@@ -79,7 +79,7 @@ class Server:
             # TODO: Modify the send to avoid short-writes
             client_sock.send("{}\n".format(msg).encode('utf-8'))
         except OSError as e:
-            logging.error("action: receive_message | result: fail | error: {e}")
+            logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
             self._client_sockets.remove(client_sock)
             client_sock.close()
@@ -99,4 +99,4 @@ class Server:
             logging.info(f'action: accept_connections | result: success | ip: {addr[0]}')
             return c
         except OSError as e:
-            raise
+            logging.info(f"action: accept_connections | result: fail | error: {e}")
