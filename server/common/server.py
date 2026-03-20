@@ -41,7 +41,6 @@ class Server:
         
         logging.info("action: shutdown_server | result: success")
         
-        exit(0)
 
     def run(self):
         """
@@ -58,11 +57,12 @@ class Server:
         while self._running:
             try:
                 client_sock = self.__accept_new_connection()
+                if client_sock:
+                    self._client_sockets.append(client_sock)
+                    self.__handle_client_connection(client_sock)
             except OSError as e:
                 break
 
-            self._client_sockets.append(client_sock)
-            self.__handle_client_connection(client_sock)
 
     def __handle_client_connection(self, client_sock):
         """
