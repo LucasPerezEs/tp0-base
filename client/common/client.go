@@ -8,6 +8,8 @@ import (
 	"os"
 
 	"github.com/op/go-logging"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol/protocol"
+
 )
 
 var log = logging.MustGetLogger("log")
@@ -82,7 +84,12 @@ func (c *Client) StartClient(signalChannel chan os.Signal) {
 		return
 	}
 
-	// TODO: Create the message to send to the server with the bet information
+	// Create the message to send to the server with the bet information
+	message, err := protocol.SerializeBet(c.config.ID, c.bet)
+	if err != nil {
+		log.Errorf("action: serialize_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
 
 	// TODO: Send the message to the server
 
