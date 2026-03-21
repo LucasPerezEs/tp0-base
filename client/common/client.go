@@ -9,7 +9,7 @@ import (
 
 	"github.com/op/go-logging"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol/protocol"
-
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/network"
 )
 
 var log = logging.MustGetLogger("log")
@@ -91,7 +91,11 @@ func (c *Client) StartClient(signalChannel chan os.Signal) {
 		return
 	}
 
-	// TODO: Send the message to the server
+	// Send the message to the server
+	if err := network.SendAll(c.conn, message); err != nil {
+		log.Errorf("action: send_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
 
 	// TODO: Receive ACK from the server
 
