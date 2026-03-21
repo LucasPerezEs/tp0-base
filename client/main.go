@@ -94,11 +94,17 @@ func PrintConfig(v *viper.Viper) {
 		v.GetInt("loop.amount"),
 		v.GetDuration("loop.period"),
 		v.GetString("log.level"),
-		v.GetString("name"),
-		v.GetString("surname"),
-		v.GetString("dni"),
-		v.GetString("birth_date"),
-		v.GetInt("bet_number"),
+	)
+}
+
+// PrintBetInfo Print all the bet information of the client. For debugging purposes only
+func PrintBetInfo(clientBet common.Bet) {
+	log.Infof("action: bet_info | result: success | client_id: %s | name: %s | surname: %s | dni: %s | birth_date: %s | bet_number: %v",
+		clientBet.Name,
+		clientBet.Surname,
+		clientBet.DNI,
+		clientBet.BirthDate,
+		clientBet.BetNumber,
 	)
 }
 
@@ -125,13 +131,19 @@ func main() {
 		ID:            v.GetString("id"),
 		LoopAmount:    v.GetInt("loop.amount"),
 		LoopPeriod:    v.GetDuration("loop.period"),
-		Name:          v.GetString("name"),
-		Surname:       v.GetString("surname"),
-		DNI:           v.GetString("dni"),
-		BirthDate:     v.GetString("birth_date"),
-		BetNumber:     v.GetInt("bet_number"),
 	}
 
-	client := common.NewClient(clientConfig)
-	client.StartClientLoop(signalChannel)
+	clientBet := common.Bet{
+		Name:      v.GetString("name"),
+		Surname:   v.GetString("surname"),
+		DNI:       v.GetString("dni"),
+		BirthDate: v.GetString("birth_date"),
+		BetNumber: v.GetInt("bet_number"),
+	}
+
+	// Print bet info with debugging purposes
+	PrintBetInfo(clientBet)
+	
+	client := common.NewClient(clientConfig, clientBet)
+	client.StartClient(signalChannel)
 }
