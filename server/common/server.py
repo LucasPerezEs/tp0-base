@@ -82,6 +82,7 @@ class Server:
             bet = deserialize_bet(message)
             store_bets([bet])
             send_ack(client_sock)
+            logging.info(f"action: apuesta_almacenada | result: success | dni: {bet.document} | numero: {bet.number}")
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:
