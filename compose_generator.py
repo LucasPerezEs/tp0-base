@@ -64,6 +64,7 @@ if __name__ == "__main__":
             f.write(f"      - testing_net\n")
             f.write(f"    volumes:\n")
             f.write(f"      - ./client/config.yaml:/app/config.yaml:ro\n")
+            f.write(f"      - .data/agency-{i}.csv:/app/agency.csv:ro\n")
             f.write(f"    depends_on:\n")
             f.write(f"      - server\n")
             f.write("\n")

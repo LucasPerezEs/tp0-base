@@ -6,3 +6,6 @@ bin/
 
 # Environments
 client/envs/*
+
+# Data files
+.data/agency-*.csv
