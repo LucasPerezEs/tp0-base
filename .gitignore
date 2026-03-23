@@ -3,6 +3,3 @@
 
 # Executables
 bin/
-
-# ENV files
-client/envs/*.env
