@@ -1,31 +1,22 @@
 package common
 
 import (
-	"bufio"
-	"fmt"
 	"net"
-	"time"
 	"os"
+	"time"
 
 	"github.com/op/go-logging"
-	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol/protocol"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/network"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 )
 
 var log = logging.MustGetLogger("log")
 
-// Bet Struct that encapsulates the bet information
-type Bet struct {
-	Name      string
-	Surname   string
-	DNI       string
-	BirthDate string
-	BetNumber int
-}
 
 // ClientConfig Configuration used by the client
 type ClientConfig struct {
-	ID            string
+	ID            uint8
 	ServerAddress string
 	LoopAmount    int
 	LoopPeriod    time.Duration
@@ -33,14 +24,14 @@ type ClientConfig struct {
 
 // Client Entity that encapsulates how the client interacts with the server
 type Client struct {
-	config ClientConfig
-	bet    Bet
-	conn   net.Conn
+    config ClientConfig
+    bet    domain.Bet
+    conn   net.Conn
 }
 
 // NewClient Initializes a new client receiving the configuration
 // as a parameter
-func NewClient(config ClientConfig, bet Bet) *Client {
+func NewClient(config ClientConfig, bet domain.Bet) *Client {
 	client := &Client{
 		config: config,
 		bet:    bet,
@@ -100,7 +91,7 @@ func (c *Client) StartClient(signalChannel chan os.Signal) {
 	// TODO: Receive ACK from the server
 
 	log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %d",
-		c.bet.DNI,
-		c.bet.BetNumber,
+		c.bet.Document,
+		c.bet.Number,
 	)
 }

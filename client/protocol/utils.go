@@ -7,7 +7,7 @@ import (
 )
 
 
-// WriteStr escribe una cadena con su longitud uint8 seguida de los bytes.
+// WriteStr writes a string to the payload buffer with a uint8 length prefix.
 func WriteStr(payload *bytes.Buffer, s string) error {
     sb := []byte(s)
     if len(sb) > 0xFF {

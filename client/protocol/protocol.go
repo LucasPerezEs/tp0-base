@@ -4,36 +4,35 @@ import (
 	"encoding/binary"
 	"bytes"
 	"errors"
-	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
-	""
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 )
 
 
-func SerializeBet(id uint8, bet common.Bet) ([]byte, error) {
-	    var payload bytes.Buffer
+func SerializeBet(id uint8, b domain.Bet) ([]byte, error) {
+	var payload bytes.Buffer
 
     // ID
     if err := binary.Write(&payload, binary.BigEndian, id); err != nil {
         return nil, err
     }
 
-    if err := WriteStr(&payload, b.Name); err != nil {
+    if err := WriteStr(&payload, b.FirstName); err != nil {
         return nil, err
     }
-    if err := WriteStr(&payload, b.Surname); err != nil {
+    if err := WriteStr(&payload, b.LastName); err != nil {
         return nil, err
     }
-    if err := WriteStr(&payload, b.DNI); err != nil {
+    if err := WriteStr(&payload, b.Document); err != nil {
         return nil, err
     }
-    if err := WriteStr(&payload, b.BirthDate); err != nil {
+    if err := WriteStr(&payload, b.Birthdate); err != nil {
         return nil, err
     }
 
-    if b.BetNumber < 0 || b.BetNumber > 0xFFFF {
+    if b.Number < 0 || b.Number > 0xFFFF {
         return nil, errors.New("bet number out of range for uint16")
     }
-    if err := binary.Write(&payload, binary.BigEndian, uint16(b.BetNumber)); err != nil {
+    if err := binary.Write(&payload, binary.BigEndian, uint16(b.Number)); err != nil {
         return nil, err
     }
 

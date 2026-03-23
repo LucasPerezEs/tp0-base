@@ -1,0 +1,87 @@
+from typing import Tuple
+import logging
+
+
+class Bet:
+    def __init__(self, agency: int, first_name: str, last_name: str, document: str, birthdate: str, number: int):
+        self.agency = agency
+        self.first_name = first_name
+        self.last_name = last_name
+        self.document = document
+        self.birthdate = birthdate
+        self.number = number
+
+    def __repr__(self) -> str:
+        return (f"Bet(agency={self.agency!r}, first_name={self.first_name!r}, last_name={self.last_name!r}, "
+                f"document={self.document!r}, birthdate={self.birthdate!r}, number={self.number!r})")
+
+
+def _read_u8(buf: memoryview, offset: int) -> Tuple[int, int]:
+    if offset + 1 > len(buf):
+        raise ValueError("unexpected EOF while reading uint8")
+    return int(buf[offset]), offset + 1
+
+
+def _read_u16(buf: memoryview, offset: int) -> Tuple[int, int]:
+    if offset + 2 > len(buf):
+        raise ValueError("unexpected EOF while reading uint16")
+    val = int.from_bytes(buf[offset : offset + 2], byteorder="big")
+    return val, offset + 2
+
+
+def _read_bytes(buf: memoryview, offset: int, length: int) -> Tuple[bytes, int]:
+    if length < 0 or offset + length > len(buf):
+        raise ValueError("invalid length while reading bytes")
+    return bytes(buf[offset : offset + length]), offset + length
+
+
+def _read_str(buf: memoryview, offset: int) -> Tuple[str, int]:
+    ln, offset = _read_u8(buf, offset)
+    if ln == 0:
+        return "", offset
+    b, offset = _read_bytes(buf, offset, ln)
+    return b.decode("utf-8", errors="strict"), offset
+
+
+def deserialize_bet(payload: bytes) -> Bet:
+    """
+    Deserialize payload into Bet.
+    Expected payload layout:
+      ID uint8
+      LEN NAME uint8, NAME bytes
+      LEN SURNAME uint8, SURNAME bytes
+      LEN DNI uint8, DNI bytes
+      LEN BIRTHDATE uint8, BIRTHDATE bytes
+      BETNUMBER uint16 (big-endian)
+    """
+    if payload is None:
+        raise ValueError("payload is None")
+    if len(payload) == 0:
+        raise ValueError("empty payload")
+
+    mv = memoryview(payload)
+    offset = 0
+
+    # ID
+    id_val, offset = _read_u8(mv, offset)
+
+    # variable strings
+    first_name, offset = _read_str(mv, offset)
+    last_name, offset = _read_str(mv, offset)
+    document, offset = _read_str(mv, offset)
+    birthdate, offset = _read_str(mv, offset)
+
+    # bet number
+    bet_number, offset = _read_u16(mv, offset)
+
+    if offset != len(mv):
+        raise ValueError(f"payload not fully consumed (consumed={offset} total={len(mv)})")
+
+    return Bet(
+        agency=id_val,
+        first_name=first_name,
+        last_name=last_name,
+        document=document,
+        birthdate=birthdate,
+        number=bet_number,
+    )

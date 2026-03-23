@@ -13,6 +13,7 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
+	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 )
 
 var log = logging.MustGetLogger("log")
@@ -39,11 +40,11 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("loop", "period")
 	v.BindEnv("loop", "amount")
 	v.BindEnv("log", "level")
-	v.BindEnv("name")
-	v.BindEnv("surname")
-	v.BindEnv("dni")
-	v.BindEnv("birth_date")
-	v.BindEnv("bet_number")
+	v.BindEnv("first_name")
+	v.BindEnv("last_name")
+	v.BindEnv("document")
+	v.BindEnv("birthdate")
+	v.BindEnv("number")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -88,8 +89,8 @@ func InitLogger(logLevel string) error {
 // PrintConfig Print all the configuration parameters of the program.
 // For debugging purposes only
 func PrintConfig(v *viper.Viper) {
-	log.Infof("action: config | result: success | client_id: %s | server_address: %s | loop_amount: %v | loop_period: %v | log_level: %s | name: %s | surname: %s | dni: %s | birth_date: %s | bet_number: %v",
-		v.GetString("id"),
+	log.Infof("action: config | result: success | client_id: %d | server_address: %s | loop_amount: %v | loop_period: %v | log_level: %s",
+		v.GetInt("id"),
 		v.GetString("server.address"),
 		v.GetInt("loop.amount"),
 		v.GetDuration("loop.period"),
@@ -98,13 +99,13 @@ func PrintConfig(v *viper.Viper) {
 }
 
 // PrintBetInfo Print all the bet information of the client. For debugging purposes only
-func PrintBetInfo(clientBet common.Bet) {
-	log.Infof("action: bet_info | result: success | client_id: %s | name: %s | surname: %s | dni: %s | birth_date: %s | bet_number: %v",
-		clientBet.Name,
-		clientBet.Surname,
-		clientBet.DNI,
-		clientBet.BirthDate,
-		clientBet.BetNumber,
+func PrintBetInfo(clientBet domain.Bet) {
+	log.Infof("action: bet_info | result: success | first_name: %s | last_name: %s | document: %s | birthdate: %s | number: %v",
+		clientBet.FirstName,
+		clientBet.LastName,
+		clientBet.Document,
+		clientBet.Birthdate,
+		clientBet.Number,
 	)
 }
 
@@ -128,17 +129,17 @@ func main() {
 
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
-		ID:            v.GetString("id"),
+		ID:            uint8(v.GetInt("id")),
 		LoopAmount:    v.GetInt("loop.amount"),
 		LoopPeriod:    v.GetDuration("loop.period"),
 	}
 
-	clientBet := common.Bet{
-		Name:      v.GetString("name"),
-		Surname:   v.GetString("surname"),
-		DNI:       v.GetString("dni"),
-		BirthDate: v.GetString("birth_date"),
-		BetNumber: v.GetInt("bet_number"),
+	clientBet := domain.Bet{
+		FirstName:      v.GetString("first_name"),
+		LastName:       v.GetString("last_name"),
+		Document:      v.GetString("document"),
+		Birthdate: v.GetString("birthdate"),
+		Number: v.GetInt("number"),
 	}
 
 	// Print bet info with debugging purposes
