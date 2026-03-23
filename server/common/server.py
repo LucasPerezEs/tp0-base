@@ -65,7 +65,7 @@ class Server:
                     self._client_sockets.append(client_sock)
                     self.__handle_client_connection(client_sock)
             except socket.timeout:
-                continue  # vuelve al while y chequea _running
+                break
             except OSError as e:
                 break
 
