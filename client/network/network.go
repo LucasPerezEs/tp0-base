@@ -1,29 +1,26 @@
 package network
 
 import (
+	"fmt"
 	"net"
-	"io"
 )
 
-// SendAll ensures that all bytes in the data slice are sent through the connection. 
-func SendAll(conn net.Conn, data []byte) error {
-	totalSent := 0
-	for totalSent < len(data) {
-		n, err := conn.Write(data[totalSent:])
-		if err != nil {
-			return err
-		}
-		totalSent += n
+// SendFrameWithACK envía un frame con formato: 1 byte type, 2 bytes length (big-endian), payload.
+// Luego lee 1 byte ACK y lo devuelve.
+func SendFrameWithACK(conn net.Conn, frame []byte) (byte, error) {
+
+    if len(frame) > 0xFFFF {
+        return 0, fmt.Errorf("payload too large for uint16")
+    }
+
+	if err := SendAll(conn, frame); err != nil {
+		return 0, err
 	}
-	return nil
-}
 
-
-// ReceiveACK reads a single byte from the connection, which is expected to be an ACK from the server.
-func ReceiveACK(conn net.Conn) (byte, error) {
-    var ackBuf [1]byte
-    if _, err := io.ReadFull(conn, ackBuf[:]); err != nil {
+    // receive ACK
+    ack, err := ReceiveACK(conn)
+    if err != nil {
         return 0, err
     }
-    return ackBuf[0], nil
+    return ack, nil
 }

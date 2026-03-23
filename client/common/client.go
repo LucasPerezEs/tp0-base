@@ -60,15 +60,12 @@ func (c *Client) sendBatch(batchBuf *bytes.Buffer, batchCount *int, batchBytes *
     if *batchCount == 0 {
         return nil
     }
-    if err := network.SendAll(c.conn, batchBuf.Bytes()); err != nil {
+    ack, err := network.SendFrameWithACK(c.conn, batchBuf.Bytes());
+	if err != nil {
         log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
         return err
     }
-    ack, err := network.ReceiveACK(c.conn)
-    if err != nil {
-        log.Errorf("action: receive_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
-        return err
-    }
+
     if ack != 1 {
         log.Warningf("action: receive_ack | result: negative | client_id: %v | ack: %02x", c.config.ID, ack)
     }
@@ -78,16 +75,16 @@ func (c *Client) sendBatch(batchBuf *bytes.Buffer, batchCount *int, batchBytes *
     return nil
 }
 
-// appendToBatch añade message al batch, enviando el batch existente si hace falta.
+// appendToBatch adds message to batchBuf. If adding the message would exceed batch limits, it sends the current batch first.
 func (c *Client) appendToBatch(batchBuf *bytes.Buffer, message []byte, batchCount *int, batchBytes *int, maxBytes int) error {
-    // Si al añadir este mensaje se exceden los límites, enviamos el batch actual primero.
+    // If adding this message exceeds limits, send current batch first.
     if *batchCount > 0 && (*batchCount+1 > c.config.BatchMaxAmount || (maxBytes > 0 && *batchBytes+len(message) > maxBytes)) {
         if err := c.sendBatch(batchBuf, batchCount, batchBytes); err != nil {
             return err
         }
     }
 
-    // Añadir el mensaje al batch
+    // Add message to batch
     if _, err := batchBuf.Write(message); err != nil {
         log.Errorf("action: batch_write | result: fail | client_id: %v | error: %v", c.config.ID, err)
         return err
@@ -95,7 +92,7 @@ func (c *Client) appendToBatch(batchBuf *bytes.Buffer, message []byte, batchCoun
     *batchCount++
     *batchBytes += len(message)
 
-    // Si alcanzamos el límite exacto, enviamos inmediatamente
+    // If we hit the exact limit, send immediately
     if *batchCount >= c.config.BatchMaxAmount || (maxBytes > 0 && *batchBytes >= maxBytes) {
         if err := c.sendBatch(batchBuf, batchCount, batchBytes); err != nil {
             return err
@@ -104,7 +101,7 @@ func (c *Client) appendToBatch(batchBuf *bytes.Buffer, message []byte, batchCoun
     return nil
 }
 
-// processBets lee el CSV y delega en appendToBatch. Retorna error si ocurre fallo I/O serio.
+// processBets reads the CSV and delegates to appendToBatch.
 func (c *Client) processBets(f io.Reader) error {
     var batchBuf bytes.Buffer
     batchCount := 0
@@ -138,14 +135,14 @@ func (c *Client) processBets(f io.Reader) error {
         }
     }
 
-    // Enviar batch restante si queda
+    // Send remaining bets in batch if any
     if err := c.sendBatch(&batchBuf, &batchCount, &batchBytes); err != nil {
         return err
     }
     return nil
 }
 
-// StartClient ahora solo orquesta: crear socket, abrir archivo y llamar a processBets.
+// StartClient creates socket, opens file, calls processBets and sends FIN frame to end connection.
 func (c *Client) StartClient(signalChannel chan os.Signal) {
 
 	go func() {
@@ -165,22 +162,35 @@ func (c *Client) StartClient(signalChannel chan os.Signal) {
 		return
 	}
 
-	// Abrir archivo (propio ownership). Si no existe, loguear y cerrar conexión.
+	// Open dataset file. If it fails, log the error and shutdown the client.
 	f, err := os.Open(c.config.DataPath)
 	if err != nil {
 		log.Infof("action: process_dataset | result: no_file | client_id: %v | path: %s", c.config.ID, c.config.DataPath)
 		_ = c.conn.Close()
 		return
 	}
+	
 	defer f.Close()
 
+	// Send Bets to the server in batches.
 	if err := c.processBets(f); err != nil {
 		log.Errorf("action: process_bets | result: fail | client_id: %v | error: %v", c.config.ID, err)
 		_ = c.conn.Close()
 		return
 	}
 
-	// Cerrar conexión después de terminar
+	// Send FIN frame to server to indicate that no more bets will be sent.
+	finFrame := protocol.SerializeFin()
+	ack, err := network.SendFrameWithACK(c.conn, finFrame);
+	if err != nil {
+		log.Errorf("action: send_fin | result: fail | client_id: %v | error: %v", c.config.ID, err)
+	}
+
+	if ack != 1 {
+		log.Warningf("action: receive_ack | result: negative | client_id: %v | ack: %02x", c.config.ID, ack)
+	}
+
+	// Close connection before shutdown.
 	if err := c.conn.Close(); err != nil {
 		log.Errorf("action: shutdown | result: fail | client_id: %v | error: %v", c.config.ID, err)
 	} else {

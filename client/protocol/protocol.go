@@ -7,45 +7,47 @@ import (
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 )
 
+type FrameType uint8
+
+const (
+	FrameTypeData   FrameType = 0x01
+	FrameTypeFin FrameType = 0x02
+)
 
 func SerializeBet(id uint8, b domain.Bet) ([]byte, error) {
-	var payload bytes.Buffer
-
-    // ID
-    if err := binary.Write(&payload, binary.BigEndian, id); err != nil {
+    // Build the payload
+    payload, err := BuildPayload(id, b)
+    if err != nil {
         return nil, err
     }
 
-    if err := WriteStr(&payload, b.FirstName); err != nil {
-        return nil, err
-    }
-    if err := WriteStr(&payload, b.LastName); err != nil {
-        return nil, err
-    }
-    if err := WriteStr(&payload, b.Document); err != nil {
-        return nil, err
-    }
-    if err := WriteStr(&payload, b.Birthdate); err != nil {
-        return nil, err
-    }
-
-    if b.Number < 0 || b.Number > 0xFFFF {
-        return nil, errors.New("bet number out of range for uint16")
-    }
-    if err := binary.Write(&payload, binary.BigEndian, uint16(b.Number)); err != nil {
-        return nil, err
-    }
-
-    // Create the full message with length prefix
-    full := bytes.Buffer{}
-    if payload.Len() > 0xFFFF {
+    if len(payload) > 0xFFFF {
         return nil, errors.New("payload too large for uint16 size")
     }
-    if err := binary.Write(&full, binary.BigEndian, uint16(payload.Len())); err != nil {
+
+    // Create the full message with type and length prefix
+    var full bytes.Buffer
+
+    // type
+    if err := binary.Write(&full, binary.BigEndian, uint8(FrameTypeData)); err != nil {
         return nil, err
     }
-    if _, err := full.Write(payload.Bytes()); err != nil {
+
+    // len
+    if err := binary.Write(&full, binary.BigEndian, uint16(len(payload))); err != nil {
         return nil, err
     }
+
+    // payload
+    if len(payload) > 0 {
+        if _, err := full.Write(payload); err != nil {
+            return nil, err
+        }
+    }
+
     return full.Bytes(), nil
+}
+
+func SerializeFin() []byte {
+	return []byte{uint8(FrameTypeFin), 0x00, 0x00} // type + length=0
 }
