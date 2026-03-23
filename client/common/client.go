@@ -68,19 +68,37 @@ func (c *Client) sendBatch(batchBuf *bytes.Buffer, batchCount *int, batchBytes *
 		return err
 	}
 
-    ack, err := network.SendFrameWithACK(c.conn, frame);
-	if err != nil {
-        log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
-        return err
-    }
+	const maxRetries = 3
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+	
+		ack, err := network.SendFrameWithACK(c.conn, frame);
+		if err != nil {
+			log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
+			return err
+		}
 
-    if ack != 1 {
+		if ack == 1 {
+			batchBuf.Reset()
+			*batchCount = 0
+			*batchBytes = 0
+			return nil
+		}
+
+		if ack == 2 {
+			log.Warningf("action: nack_received | client_id: %v | ack: %02x | attempt: %d", c.config.ID, ack, attempt)
+			time.Sleep(100 * time.Millisecond) // wait before retrying
+			continue
+		}
+
+		// other ACK value: warn and treat as success
         log.Warningf("action: receive_ack | result: negative | client_id: %v | ack: %02x", c.config.ID, ack)
-    }
-    batchBuf.Reset()
-    *batchCount = 0
-    *batchBytes = 0
-    return nil
+        batchBuf.Reset()
+        *batchCount = 0
+        *batchBytes = 0
+        return nil
+	}
+
+	log.Errorf("action: send_batch | result: fail | client_id: %v | error: max retries reached", c.config.ID)
 }
 
 // appendToBatch adds message to batchBuf. If adding the message would exceed batch limits, it sends the current batch first.

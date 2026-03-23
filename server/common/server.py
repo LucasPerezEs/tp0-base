@@ -1,8 +1,8 @@
 import socket
 import logging
 import signal
-from .network import read_client_message, send_ack, read_exact, read_frame
-from .protocol import deserialize_bet, deserialize_batch
+from .network import send_ack, read_frame, send_nack
+from .protocol import deserialize_batch
 from .utils import store_bets
 
 
@@ -78,7 +78,13 @@ class Server:
                     frame_type, payload = read_frame(client_sock)
                 except OSError as e:
                     logging.error(f"action: receive_message | result: fail | error: {e}")
-                    break
+                    try:
+                        send_nack(client_sock)
+                    except OSError as e:
+                        logging.error(f"action: send_nack | result: fail | error: {e}")
+                        break
+                    # continue waiting for the client to resend
+                    continue
 
                 if frame_type == 0x02:  # FIN
                     logging.info("action: received FIN frame | result: success")
@@ -92,7 +98,13 @@ class Server:
                     bets, err = deserialize_batch(payload)
                     if err:
                         logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
-                        # TODO: enviar NACK para que el cliente reenvie
+                        try:
+                            send_nack(client_sock)
+                        except OSError as e:
+                            logging.error(f"action: send_nack | result: fail | error: {e}")
+                            break
+                        # continue waiting for the client to resend
+                        continue
 
                     if bets:
                         try:
@@ -100,8 +112,12 @@ class Server:
                             logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
                         except Exception as e:
                             logging.error(f"action: store_bets | result: fail | error: {e}")
-                            # TODO: enviar NACK para que el cliente reenvie
+                            try:
+                                send_nack(client_sock)
+                            except OSError as e:
+                                logging.error(f"action: send_nack | result: fail | error: {e}")
                             continue
+                        
                         try:
                             send_ack(client_sock)
                         except OSError as e:

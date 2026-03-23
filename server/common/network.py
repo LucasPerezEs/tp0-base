@@ -44,9 +44,16 @@ def read_frame(sock):
 
 def send_ack(sock: socket.socket) -> None:
     """
-    Send a single byte ACK (0x06) to the server.
+    Send a single byte ACK (0x01) to the server.
     """
     try:
         sock.sendall(b"\x01")
     except OSError as e:
         logging.error(f"action: send_ack | result: fail | error: {e}")
+
+
+def send_nack(sock):
+    """
+    Send a single-byte NACK (0x02). Propaga OSError si falla.
+    """
+    sock.sendall(b'\x02')
