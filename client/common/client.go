@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"encoding/csv"
+	"encoding/binary"
 	"bytes"
 	"io"
 
@@ -60,7 +61,14 @@ func (c *Client) sendBatch(batchBuf *bytes.Buffer, batchCount *int, batchBytes *
     if *batchCount == 0 {
         return nil
     }
-    ack, err := network.SendFrameWithACK(c.conn, batchBuf.Bytes());
+
+	frame, err := protocol.BuildFrame(protocol.FrameTypeData, batchBuf.Bytes())
+	if err != nil {
+		log.Errorf("action: build_frame | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return err
+	}
+
+    ack, err := network.SendFrameWithACK(c.conn, frame);
 	if err != nil {
         log.Errorf("action: send_batch | result: fail | client_id: %v | error: %v", c.config.ID, err)
         return err
@@ -77,11 +85,20 @@ func (c *Client) sendBatch(batchBuf *bytes.Buffer, batchCount *int, batchBytes *
 
 // appendToBatch adds message to batchBuf. If adding the message would exceed batch limits, it sends the current batch first.
 func (c *Client) appendToBatch(batchBuf *bytes.Buffer, message []byte, batchCount *int, batchBytes *int, maxBytes int) error {
-    // If adding this message exceeds limits, send current batch first.
-    if *batchCount > 0 && (*batchCount+1 > c.config.BatchMaxAmount || (maxBytes > 0 && *batchBytes+len(message) > maxBytes)) {
+    // 2 bytes (len) + payload
+	size := 2 + len(message)
+
+	// If adding this message exceeds limits, send current batch first.
+    if *batchCount > 0 && (*batchCount+1 > c.config.BatchMaxAmount || (maxBytes > 0 && *batchBytes+size > maxBytes) || *batchBytes+size == 0xFFFF) {
         if err := c.sendBatch(batchBuf, batchCount, batchBytes); err != nil {
             return err
         }
+    }
+
+	// per-bet length prefix (2 bytes)
+    if err := binary.Write(batchBuf, binary.BigEndian, uint16(len(message))); err != nil {
+        log.Errorf("action: batch_write | result: fail | client_id: %v | error: %v", c.config.ID, err)
+        return err
     }
 
     // Add message to batch
@@ -90,10 +107,10 @@ func (c *Client) appendToBatch(batchBuf *bytes.Buffer, message []byte, batchCoun
         return err
     }
     *batchCount++
-    *batchBytes += len(message)
+    *batchBytes += size
 
     // If we hit the exact limit, send immediately
-    if *batchCount >= c.config.BatchMaxAmount || (maxBytes > 0 && *batchBytes >= maxBytes) {
+    if *batchCount >= c.config.BatchMaxAmount || (maxBytes > 0 && *batchBytes >= maxBytes) || (*batchBytes >= 0xFFFF) {
         if err := c.sendBatch(batchBuf, batchCount, batchBytes); err != nil {
             return err
         }
@@ -124,13 +141,13 @@ func (c *Client) processBets(f io.Reader) error {
             continue
         }
 
-        message, err := protocol.SerializeBet(c.config.ID, bet)
+        payload, err := protocol.BuildPayload(c.config.ID, bet)
         if err != nil {
-            log.Errorf("action: serialize_bet | result: fail | client_id: %v | error: %v", c.config.ID, err)
+            log.Errorf("action: build_payload | result: fail | client_id: %v | error: %v", c.config.ID, err)
             continue
         }
 
-        if err := c.appendToBatch(&batchBuf, message, &batchCount, &batchBytes, maxBytes); err != nil {
+        if err := c.appendToBatch(&batchBuf, payload, &batchCount, &batchBytes, maxBytes); err != nil {
             return err
         }
     }
@@ -184,6 +201,8 @@ func (c *Client) StartClient(signalChannel chan os.Signal) {
 	ack, err := network.SendFrameWithACK(c.conn, finFrame);
 	if err != nil {
 		log.Errorf("action: send_fin | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		_ = c.conn.Close()
+		return
 	}
 
 	if ack != 1 {

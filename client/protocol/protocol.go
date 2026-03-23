@@ -4,6 +4,8 @@ import (
 	"encoding/binary"
 	"bytes"
 	"errors"
+	"fmt"
+
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 )
 
@@ -14,38 +16,56 @@ const (
 	FrameTypeFin FrameType = 0x02
 )
 
-func SerializeBet(id uint8, b domain.Bet) ([]byte, error) {
-    // Build the payload
-    payload, err := BuildPayload(id, b)
-    if err != nil {
-        return nil, err
-    }
-
+// BuildFrame builds external frame: 1 byte for type + 2 bytes for length + payload.
+func BuildFrame(t FrameType, payload []byte) ([]byte, error) {
     if len(payload) > 0xFFFF {
-        return nil, errors.New("payload too large for uint16 size")
+        return nil, fmt.Errorf("payload too large for uint16")
     }
-
-    // Create the full message with type and length prefix
-    var full bytes.Buffer
-
-    // type
-    if err := binary.Write(&full, binary.BigEndian, uint8(FrameTypeData)); err != nil {
+    var buf bytes.Buffer
+    if err := binary.Write(&buf, binary.BigEndian, uint8(t)); err != nil {
         return nil, err
     }
-
-    // len
-    if err := binary.Write(&full, binary.BigEndian, uint16(len(payload))); err != nil {
+    if err := binary.Write(&buf, binary.BigEndian, uint16(len(payload))); err != nil {
         return nil, err
     }
-
-    // payload
     if len(payload) > 0 {
-        if _, err := full.Write(payload); err != nil {
+        if _, err := buf.Write(payload); err != nil {
             return nil, err
         }
     }
+    return buf.Bytes(), nil
+}
 
-    return full.Bytes(), nil
+
+func BuildPayload(id uint8, b domain.Bet) ([]byte, error) {
+	var payload bytes.Buffer
+
+    // ID
+    if err := binary.Write(&payload, binary.BigEndian, id); err != nil {
+        return nil, err
+    }
+
+    if err := WriteStr(&payload, b.FirstName); err != nil {
+        return nil, err
+    }
+    if err := WriteStr(&payload, b.LastName); err != nil {
+        return nil, err
+    }
+    if err := WriteStr(&payload, b.Document); err != nil {
+        return nil, err
+    }
+    if err := WriteStr(&payload, b.Birthdate); err != nil {
+        return nil, err
+    }
+
+    if b.Number < 0 || b.Number > 0xFFFF {
+        return nil, errors.New("bet number out of range for uint16")
+    }
+    if err := binary.Write(&payload, binary.BigEndian, uint16(b.Number)); err != nil {
+        return nil, err
+    }
+
+    return payload.Bytes(), nil
 }
 
 func SerializeFin() []byte {
