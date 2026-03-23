@@ -62,7 +62,6 @@ class Server:
                     self._client_sockets.append(client_sock)
                     self.__handle_client_connection(client_sock)
             except socket.timeout:
-                logging.info("action: accept_connections | result: timeout | exiting")
                 self.shutdown_server(None, None)
                 break
             except OSError as e:
