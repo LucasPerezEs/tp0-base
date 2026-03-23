@@ -1,4 +1,33 @@
 import sys
+import os
+import random
+import datetime
+
+def generate_client_envs(count: int, env_dir: str = "client/envs"):
+    os.makedirs(env_dir, exist_ok=True)
+
+    first_names = ["Juan", "Maria", "Luis", "Ana", "Carlos", "Lucia", "Miguel", "Sofia"]
+    last_names = ["Perez", "Gonzalez", "Rodriguez", "Messi", "Ronaldo", "Lopez", "Ramirez", "Sosa"]
+
+    paths = []
+    for i in range(1, count + 1):
+        env_path = os.path.join(env_dir, f"client{i}.env")
+        first = random.choice(first_names)
+        last = random.choice(last_names)
+        with open(env_path, "w") as ef:
+            ef.write(f"CLI_ID={i}\n")
+            ef.write(f"CLI_FIRST_NAME={first}\n")
+            ef.write(f"CLI_LAST_NAME={last}\n")
+            ef.write(f"CLI_DOCUMENT={str(random.randint(10_000_000, 99_999_999))}\n")
+            ef.write(f"CLI_BIRTHDATE={str(random.randint(1950, 2005))}-{str(random.randint(1, 12)).zfill(2)}-{str(random.randint(1, 28)).zfill(2)}\n")
+            ef.write(f"CLI_NUMBER={str(random.randint(1, 65535))}\n")
+        try:
+            os.chmod(env_path, 0o644)
+        except Exception:
+            pass
+        paths.append(env_path)
+    return paths
+
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
@@ -7,6 +36,8 @@ if __name__ == "__main__":
 
     nombre_archivo_salida = sys.argv[1]
     cantidad_clientes = int(sys.argv[2])
+
+    generate_client_envs(cantidad_clientes)
 
     with open(nombre_archivo_salida, 'w') as f:
         f.write("name: tp0\n")

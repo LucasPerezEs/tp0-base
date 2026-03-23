@@ -3,3 +3,6 @@
 
 # Executables
 bin/
+
+# Environments
+client/envs/*
