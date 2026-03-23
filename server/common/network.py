@@ -27,3 +27,13 @@ def read_client_message(sock: socket.socket) -> bytes:
         return b""
     payload = read_exact(sock, size)
     return payload
+
+
+def send_ack(sock: socket.socket) -> None:
+    """
+    Send a single byte ACK (0x06) to the server.
+    """
+    try:
+        sock.sendall(b"\x01")
+    except OSError as e:
+        logging.error(f"action: send_ack | result: fail | error: {e}")

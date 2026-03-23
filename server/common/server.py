@@ -1,7 +1,7 @@
 import socket
 import logging
 import signal
-from .network import read_client_message
+from .network import read_client_message, send_ack
 from .protocol import deserialize_bet
 from .utils import store_bets
 
@@ -80,8 +80,8 @@ class Server:
         try:
             message = read_client_message(client_sock)
             bet = deserialize_bet(message)
-
             store_bets([bet])
+            send_ack(client_sock)
         except OSError as e:
             logging.error(f"action: receive_message | result: fail | error: {e}")
         finally:

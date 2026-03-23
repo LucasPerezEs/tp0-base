@@ -88,7 +88,17 @@ func (c *Client) StartClient(signalChannel chan os.Signal) {
 		return
 	}
 
-	// TODO: Receive ACK from the server
+	// Receive ACK from the server
+	ack, err := network.ReceiveACK(c.conn)
+	if err != nil {
+		log.Errorf("action: receive_ack | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		return
+	}
+	
+	if ack != 1 {
+		log.Warningf("action: receive_ack | result: fail | client_id: %v | error: invalid ACK value %v", c.config.ID, ack)
+		return
+	}
 
 	log.Infof("action: apuesta_enviada | result: success | dni: %s | numero: %d",
 		c.bet.Document,
