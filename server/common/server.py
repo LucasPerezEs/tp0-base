@@ -17,12 +17,9 @@ class Server:
         self._running = True
 
 
-    def handle_sigterm(self, signum, frame):
+    def shutdown_server(self, signum, frame):
         """
-        Handle SIGTERM signal to gracefully shutdown the server
-
-        When SIGTERM signal is received, the server socket is closed and the
-        program exits
+        Gracefully shutdown the server (can be used as a SIGTERM handler).
         """
         logging.info("action: shutdown | result: in_progress")
         
@@ -56,7 +53,7 @@ class Server:
         finishes, servers starts to accept new connections again
         """
 
-        signal.signal(signal.SIGTERM, self.handle_sigterm)
+        signal.signal(signal.SIGTERM, self.shutdown_server)
 
         while self._running:
             try:
@@ -65,6 +62,8 @@ class Server:
                     self._client_sockets.append(client_sock)
                     self.__handle_client_connection(client_sock)
             except socket.timeout:
+                logging.info("action: accept_connections | result: timeout | exiting")
+                self.shutdown_server(None, None)
                 break
             except OSError as e:
                 break
