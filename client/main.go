@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/viper"
 
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/common"
-	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/domain"
 )
 
 var log = logging.MustGetLogger("log")
@@ -36,12 +35,8 @@ func InitConfig() (*viper.Viper, error) {
 	v.BindEnv("id")
 	v.BindEnv("server", "address")
 	v.BindEnv("batch", "maxAmount")
+	v.BindEnv("batch", "maxKb")
 	v.BindEnv("log", "level")
-	v.BindEnv("first_name")
-	v.BindEnv("last_name")
-	v.BindEnv("document")
-	v.BindEnv("birthdate")
-	v.BindEnv("number")
 
 	// Try to read configuration from config file. If config file
 	// does not exists then ReadInConfig will fail but configuration
@@ -80,24 +75,15 @@ func InitLogger(logLevel string) error {
 // PrintConfig Print all the configuration parameters of the program.
 // For debugging purposes only
 func PrintConfig(v *viper.Viper) {
-	log.Infof("action: config | result: success | client_id: %d | server_address: %s | log_level: %s | batch_max_amount: %d",
+	log.Infof("action: config | result: success | client_id: %d | server_address: %s | log_level: %s | batch_max_amount: %d | batch_max_kb: %d",
 		v.GetInt("id"),
 		v.GetString("server.address"),
 		v.GetString("log.level"),
 		v.GetInt("batch.maxAmount"),
+		v.GetInt("batch.maxKb"),
 	)
 }
 
-// PrintBetInfo Print all the bet information of the client. For debugging purposes only
-func PrintBetInfo(clientBet domain.Bet) {
-	log.Infof("action: bet_info | result: success | first_name: %s | last_name: %s | document: %s | birthdate: %s | number: %v",
-		clientBet.FirstName,
-		clientBet.LastName,
-		clientBet.Document,
-		clientBet.Birthdate,
-		clientBet.Number,
-	)
-}
 
 func main() {
 	v, err := InitConfig()
@@ -117,23 +103,16 @@ func main() {
 	
 	signal.Notify(signalChannel, syscall.SIGTERM)
 
+	dataPath := "/app/agency.csv"
+
 	clientConfig := common.ClientConfig{
 		ServerAddress: v.GetString("server.address"),
 		ID:            uint8(v.GetInt("id")),
 		BatchMaxAmount: v.GetInt("batch.maxAmount"),
+		BatchMaxKb:     v.GetInt("batch.maxKb"),
+		DataPath:      dataPath,
 	}
 
-	clientBet := domain.Bet{
-		FirstName:      v.GetString("first_name"),
-		LastName:       v.GetString("last_name"),
-		Document:      v.GetString("document"),
-		Birthdate: v.GetString("birthdate"),
-		Number: v.GetInt("number"),
-	}
-
-	// Print bet info with debugging purposes
-	PrintBetInfo(clientBet)
-	
-	client := common.NewClient(clientConfig, clientBet)
+	client := common.NewClient(clientConfig)
 	client.StartClient(signalChannel)
 }
