@@ -29,6 +29,19 @@ def read_client_message(sock: socket.socket) -> bytes:
     return payload
 
 
+def read_frame(sock):
+    """
+    Read a full frame: 1 byte type + 2 bytes length + payload.
+    Returns (frame_type:int, payload:bytes) or raises OSError on I/O error/EOF.
+    """
+
+    hdr = read_exact(sock, 3)
+    frame_type = hdr[0]
+    total_len = int.from_bytes(hdr[1:3], 'big')
+    payload = read_exact(sock, total_len) if total_len > 0 else b''
+    return frame_type, payload
+
+
 def send_ack(sock: socket.socket) -> None:
     """
     Send a single byte ACK (0x06) to the server.

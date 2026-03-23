@@ -1,5 +1,4 @@
 from typing import Tuple
-import logging
 
 
 class Bet:
@@ -85,3 +84,30 @@ def deserialize_bet(payload: bytes) -> Bet:
         birthdate=birthdate,
         number=bet_number,
     )
+
+
+def deserialize_batch(payload: bytes):
+    """
+    Parse batch payload composed of N len-payloads.
+    Returns (list_of_bets, error) — error is non-none on framing corruption.
+    Individual bet deserialization errors skip that bet (logged by caller if wanted).
+    """
+    bets = []
+    off = 0
+    total = len(payload)
+    while off < total:
+        if off + 2 > total:
+            return bets, ValueError("short per-bet length header")
+        per_len = int.from_bytes(payload[off:off+2], 'big')
+        off += 2
+        if off + per_len > total:
+            return bets, ValueError("short per-bet payload")
+        bet_bytes = payload[off:off+per_len]
+        off += per_len
+        try:
+            bet = deserialize_bet(bet_bytes)
+            bets.append(bet)
+        except ValueError:
+            # skip invalid bet
+            continue
+    return bets, None
