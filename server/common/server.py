@@ -78,13 +78,7 @@ class Server:
                     frame_type, payload = read_frame(client_sock)
                 except OSError as e:
                     logging.error(f"action: receive_message | result: fail | error: {e}")
-                    try:
-                        send_nack(client_sock)
-                    except OSError as e:
-                        logging.error(f"action: send_nack | result: fail | error: {e}")
-                        break
-                    # continue waiting for the client to resend
-                    continue
+                    break
 
                 if frame_type == 0x02:  # FIN
                     logging.info("action: received FIN frame | result: success")
@@ -116,6 +110,7 @@ class Server:
                                 send_nack(client_sock)
                             except OSError as e:
                                 logging.error(f"action: send_nack | result: fail | error: {e}")
+                                break
                             continue
                         
                         try:
