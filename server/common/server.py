@@ -2,7 +2,7 @@ import socket
 import logging
 import signal
 from .network import send_ack, read_frame, send_nack
-from .protocol import deserialize_batch
+from .protocol import deserialize_batch, Bet
 from .utils import store_bets
 
 
@@ -13,7 +13,9 @@ class Server:
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
         self._server_socket.settimeout(5)
-        self._client_sockets = []
+        self._client_sockets = {} # {agency_id: socket}
+        self._clients_ready = 0
+        self._expected_clients = listen_backlog
         self._running = True
 
 
@@ -32,10 +34,10 @@ class Server:
         
         logging.info("action: closed server socket | result: success")
 
-        
-        for client_sock in self._client_sockets:
+
+        for _agency_id, _client_sock in self._client_sockets.items():
             try: 
-                client_sock.close()
+                _client_sock.close()
             except OSError as e:
                 logging.error(f"action: closed client socket | result: fail | error: {e}")
             
@@ -59,8 +61,12 @@ class Server:
             try:
                 client_sock = self.__accept_new_connection()
                 if client_sock:
-                    self._client_sockets.append(client_sock)
                     self.__handle_client_connection(client_sock)
+
+                    if self._clients_ready >= self._expected_clients:
+                        logging.info("action: sorteo | result: success")
+                        # TODO: logica sorteo
+
             except socket.timeout:
                 self.shutdown_server(None, None)
                 break
@@ -86,10 +92,12 @@ class Server:
                         send_ack(client_sock)
                     except OSError as e:
                         logging.error(f"action: send_ack | result: fail | error: {e}")
-                    break
+                    
+                    self._clients_ready += 1
+                    return
 
                 if frame_type == 0x01:  # BATCH
-                    bets, err = deserialize_batch(payload)
+                    agency_id, bets, err = deserialize_batch(payload)
                     if err:
                         logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)}")
                         try:
@@ -99,6 +107,10 @@ class Server:
                             break
                         # continue waiting for the client to resend
                         continue
+                    
+                    # Save socket for later
+                    if agency_id and agency_id not in self._client_sockets:
+                        self._client_sockets[agency_id] = client_sock
 
                     if bets:
                         try:
@@ -110,30 +122,45 @@ class Server:
                                 send_nack(client_sock)
                             except OSError as e:
                                 logging.error(f"action: send_nack | result: fail | error: {e}")
-                                break
+                                try:
+                                    client_sock.close()
+                                except OSError as e:
+                                    pass
+                                return
                             continue
-                        
+
                         try:
                             send_ack(client_sock)
                         except OSError as e:
                             logging.error(f"action: send_ack | result: fail | error: {e}")
-                            break
+                            try:
+                                client_sock.close()
+                            except OSError as e:
+                                pass
+                            return
+
                     else:
                         # empty batch -> ack to keep protocol deterministic
                         try:
                             send_ack(client_sock)
                         except OSError as e:
                             logging.error(f"action: send_ack | result: fail | error: {e}")
-                            break
+                            try:
+                                client_sock.close()
+                            except OSError as e:
+                                pass
+                            return
                     continue
 
                 logging.error(f"action: receive_message | result: fail | error: invalid batch type {frame_type}")
-                break
+                try:
+                    client_sock.close()
+                except OSError as e:
+                    pass
+                return
 
         finally:
-            if client_sock in self._client_sockets:
-                self._client_sockets.remove(client_sock)
-            client_sock.close()
+            return
 
     def __accept_new_connection(self):
         """

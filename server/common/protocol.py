@@ -89,25 +89,29 @@ def deserialize_bet(payload: bytes) -> Bet:
 def deserialize_batch(payload: bytes):
     """
     Parse batch payload composed of N len-payloads.
-    Returns (list_of_bets, error) — error is non-none on framing corruption.
+    Returns (agency_id, list_of_bets, error) — error is non-none on framing corruption.
     Individual bet deserialization errors skip that bet (logged by caller if wanted).
     """
     bets = []
     off = 0
     total = len(payload)
+    agency_id = None
     while off < total:
         if off + 2 > total:
-            return bets, ValueError("short per-bet length header")
+            return agency_id, bets, ValueError("short per-bet length header")
         per_len = int.from_bytes(payload[off:off+2], 'big')
         off += 2
         if off + per_len > total:
-            return bets, ValueError("short per-bet payload")
+            return agency_id, bets, ValueError("short per-bet payload")
         bet_bytes = payload[off:off+per_len]
         off += per_len
         try:
             bet = deserialize_bet(bet_bytes)
             bets.append(bet)
+            if not agency_id:
+                agency_id = bet.agency
         except ValueError:
             # skip invalid bet
             continue
-    return bets, None
+    
+    return agency_id, bets, None
