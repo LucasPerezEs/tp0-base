@@ -7,6 +7,8 @@ import (
 	"encoding/binary"
 	"bytes"
 	"io"
+	"time"
+	"fmt"
 
 	"github.com/op/go-logging"
 	"github.com/7574-sistemas-distribuidos/docker-compose-init/client/protocol"
@@ -99,6 +101,7 @@ func (c *Client) sendBatch(batchBuf *bytes.Buffer, batchCount *int, batchBytes *
 	}
 
 	log.Errorf("action: send_batch | result: fail | client_id: %v | error: max retries reached", c.config.ID)
+	return fmt.Errorf("max retries reached for batch")
 }
 
 // appendToBatch adds message to batchBuf. If adding the message would exceed batch limits, it sends the current batch first.
