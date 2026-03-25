@@ -229,9 +229,15 @@ func (c *Client) StartClient(signalChannel chan os.Signal) {
 	if ack != 1 {
 		log.Warningf("action: receive_ack | result: negative | client_id: %v | ack: %02x", c.config.ID, ack)
 	} else {
-		if err := c.waitForResults(); err != nil {
-			log.Errorf("action: wait_for_results | result: fail | client_id: %v | error: %v", c.config.ID, err)
-		}
+        winners, err := network.WaitForResults(c.conn)
+        if err != nil {
+            log.Errorf("action: wait_for_results | result: fail | client_id: %v | error: %v", c.config.ID, err)
+        } else {
+            log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
+            if err := network.SendAll(c.conn, []byte{0x01}); err != nil {
+                log.Errorf("action: send_ack_results | result: fail | client_id: %v | error: %v", c.config.ID, err)
+            }
+        }
 	}
 
 	// Close connection before shutdown.

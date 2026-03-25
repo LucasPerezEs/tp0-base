@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net"
 	"io"
+	"encoding/binary"
 )
 
 // SendFrameWithACK envía un frame con formato: 1 byte type, 2 bytes length (big-endian), payload.
@@ -51,25 +52,25 @@ func ReceiveACK(conn net.Conn) (byte, error) {
 }
 
 
-// waitForResults reads a RESULTS frame (type=0x04) and ACKs it.
+// waitForResults reads a RESULTS frame (type=0x04) and returns the winners.
 // Frame = 1 byte type | 2 bytes len | payload: [2 bytes len][document]...
-func (c *Client) waitForResults() error {
+func WaitForResults(conn net.Conn) ([]string, error) {
     // read header (type + len)
     header := make([]byte, 3)
-    if _, err := io.ReadFull(c.conn, header); err != nil {
-        return fmt.Errorf("read_results_header: %w", err)
+    if _, err := io.ReadFull(conn, header); err != nil {
+        return nil, fmt.Errorf("read_results_header: %w", err)
     }
 
     frameType := header[0]
     if frameType != 0x04 {
-        return fmt.Errorf("unexpected frame type: %02x", frameType)
+        return nil, fmt.Errorf("unexpected frame type: %02x", frameType)
     }
 
     payloadLen := int(binary.BigEndian.Uint16(header[1:3]))
     payload := make([]byte, payloadLen)
     if payloadLen > 0 {
-        if _, err := io.ReadFull(c.conn, payload); err != nil {
-            return fmt.Errorf("read_results_payload: %w", err)
+        if _, err := io.ReadFull(conn, payload); err != nil {
+            return nil, fmt.Errorf("read_results_payload: %w", err)
         }
     }
 
@@ -78,22 +79,16 @@ func (c *Client) waitForResults() error {
     off := 0
     for off < len(payload) {
         if off+2 > len(payload) {
-            return fmt.Errorf("parse_results: short length")
+            return nil, fmt.Errorf("parse_results: short length")
         }
         ln := int(binary.BigEndian.Uint16(payload[off : off+2]))
         off += 2
         if off+ln > len(payload) {
-            return fmt.Errorf("parse_results: short document")
+            return nil, fmt.Errorf("parse_results: short document")
         }
         winners = append(winners, string(payload[off:off+ln]))
         off += ln
     }
 
-    log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
-
-    // ACK the server for the results
-    if _, err := c.conn.Write([]byte{0x01}); err != nil {
-        return fmt.Errorf("send_ack_results: %w", err)
-    }
-    return nil
+    return winners, nil
 }
