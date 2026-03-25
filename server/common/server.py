@@ -16,7 +16,6 @@ class Server:
         self._server_socket.settimeout(5)
         self._client_sockets = {} # {agency_id: socket}
         self._clients_ready = 0
-        self._expected_clients = listen_backlog
         self._running = True
 
 
@@ -64,7 +63,7 @@ class Server:
                 if client_sock:
                     self.__handle_client_connection(client_sock)
 
-                    if self._clients_ready >= self._expected_clients:
+                    if self._clients_ready >= len(self._client_sockets):
                         logging.info("action: sorteo | result: success")
                         self.process_bets()
                         self._running = False
