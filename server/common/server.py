@@ -70,6 +70,7 @@ class Server:
                         self._running = False
 
             except socket.timeout:
+                logging.debug("action: accept_connections | result: timeout")
                 self.shutdown_server(None, None)
                 break
             except OSError as e:
