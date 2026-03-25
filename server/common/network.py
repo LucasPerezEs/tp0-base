@@ -16,19 +16,6 @@ def read_exact(sock: socket.socket, n: int) -> bytes:
     return bytes(buf)
 
 
-def read_client_message(sock: socket.socket) -> bytes:
-    """
-    Read a message prefixed with a 2-byte big-endian uint16 SIZE and return
-    the payload bytes.
-    """
-    size_b = read_exact(sock, 2)
-    size = int.from_bytes(size_b, byteorder="big")
-    if size == 0:
-        return b""
-    payload = read_exact(sock, size)
-    return payload
-
-
 def read_frame(sock):
     """
     Read a full frame: 1 byte type + 2 bytes length + payload.
@@ -57,3 +44,17 @@ def send_nack(sock):
     Send a single-byte NACK (0x02). Propaga OSError si falla.
     """
     sock.sendall(b'\x02')
+
+
+def read_ack(sock):
+    """
+    Read a single byte from the socket and return True if it's an ACK (0x01),
+    False if it's a NACK (0x02), or raise OSError on I/O error/EOF.
+    """
+    resp = read_exact(sock, 1)
+    if resp == b'\x01':
+        return True
+    elif resp == b'\x02':
+        return False
+    else:
+        raise ValueError(f"unexpected response byte: {resp.hex()}")

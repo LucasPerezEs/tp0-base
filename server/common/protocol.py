@@ -115,3 +115,34 @@ def deserialize_batch(payload: bytes):
             continue
     
     return agency_id, bets, None
+
+
+def serialize_winners(winners: list[Bet]) -> bytes:
+    """
+    Serialize winners list into a payload with the following layout:
+    1-byte message type [0x04].
+    2-byte len(payload).
+    For each winner:
+      2-byte big-endian length of bet.document payload
+      Bet.document payload
+    """
+    if len(winners) > 255:
+        raise ValueError("too many winners to serialize")
+    
+    payload = bytearray()
+    for bet in winners:
+        doc_bytes = bet.document.encode("utf-8")
+        if len(doc_bytes) > 0xFFFF:
+            raise ValueError("bet document too long to serialize")
+        payload.extend(len(doc_bytes).to_bytes(2, 'big'))
+        payload.extend(doc_bytes)
+
+    if len(payload) > 0xFFFF:
+        raise ValueError("payload too long to serialize")
+    
+    frame = bytearray()
+    frame.append(0x04)  # message type
+    frame.extend(len(payload).to_bytes(2, 'big'))
+    frame.extend(payload)
+
+    return bytes(frame)
