@@ -6,6 +6,7 @@ services:
     entrypoint: python3 /main.py
     environment:
       - PYTHONUNBUFFERED=1
+      - EXPECTED_CLIENTS=3
     networks:
       - testing_net
     volumes:
@@ -50,34 +51,6 @@ services:
     volumes:
       - ./client/config.yaml:/app/config.yaml:ro
       - .data/agency-3.csv:/app/agency.csv:ro
-    depends_on:
-      - server
-
-  client4:
-    container_name: client4
-    image: client:latest
-    entrypoint: /app/client
-    env_file:
-      - ./client/envs/client4.env
-    networks:
-      - testing_net
-    volumes:
-      - ./client/config.yaml:/app/config.yaml:ro
-      - .data/agency-4.csv:/app/agency.csv:ro
-    depends_on:
-      - server
-
-  client5:
-    container_name: client5
-    image: client:latest
-    entrypoint: /app/client
-    env_file:
-      - ./client/envs/client5.env
-    networks:
-      - testing_net
-    volumes:
-      - ./client/config.yaml:/app/config.yaml:ro
-      - .data/agency-5.csv:/app/agency.csv:ro
     depends_on:
       - server
 

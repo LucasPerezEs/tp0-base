@@ -8,13 +8,15 @@ from .utils import store_bets, load_bets, has_won
 
 
 class Server:
-    def __init__(self, port, listen_backlog):
+    def __init__(self, port, listen_backlog, expected_clients):
         # Initialize server socket
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
+        self._server_socket.settimeout(5)
         self._client_sockets = {} # {agency_id: socket}
         self._clients_ready = 0
+        self._expected_clients = expected_clients
         self._running = True
 
 
@@ -62,7 +64,7 @@ class Server:
                 if client_sock:
                     self.__handle_client_connection(client_sock)
 
-                    if self._clients_ready >= len(self._client_sockets):
+                    if self._clients_ready >= self._expected_clients:
                         logging.info("action: sorteo | result: success")
                         self.process_bets()
                         self._running = False
@@ -78,11 +80,14 @@ class Server:
 
     def process_bets(self):
         bets = load_bets()
-        winners_by_agency = {1: [], 2: [], 3: [], 4: [], 5: []}
+        winners_by_agency = {}
+
         for bet in bets:
             if has_won(bet):
+                if bet.agency not in winners_by_agency:
+                    winners_by_agency[bet.agency] = []
                 winners_by_agency[bet.agency].append(bet)
-                
+
         for agency_id, winners in winners_by_agency.items():
             for i in range(0,3):
                 try:

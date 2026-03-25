@@ -48,6 +48,7 @@ if __name__ == "__main__":
         f.write("    entrypoint: python3 /main.py\n")
         f.write("    environment:\n")
         f.write("      - PYTHONUNBUFFERED=1\n")
+        f.write(f"      - EXPECTED_CLIENTS={cantidad_clientes}\n")
         f.write("    networks:\n")
         f.write("      - testing_net\n")
         f.write("    volumes:\n")
