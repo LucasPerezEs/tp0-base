@@ -89,7 +89,8 @@ class Server:
                     winners_by_agency[bet.agency] = []
                 winners_by_agency[bet.agency].append(bet)
 
-        for agency_id, winners in winners_by_agency.items():
+        for agency_id, sock in list(self._client_sockets.items()):
+            winners = winners_by_agency.get(agency_id, [])
             for i in range(0,3):
                 try:
                     message = serialize_winners(winners)
