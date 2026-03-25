@@ -89,7 +89,7 @@ func (c *Client) waitForResults() error {
         off += ln
     }
 
-    log.Infof(f"action: consulta_ganadores | result: success | cant_ganadores: %d ", len(winners))
+    log.Infof("action: consulta_ganadores | result: success | cant_ganadores: %d", len(winners))
 
     // ACK the server for the results
     if _, err := c.conn.Write([]byte{0x01}); err != nil {
