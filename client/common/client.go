@@ -228,6 +228,10 @@ func (c *Client) StartClient(signalChannel chan os.Signal) {
 
 	if ack != 1 {
 		log.Warningf("action: receive_ack | result: negative | client_id: %v | ack: %02x", c.config.ID, ack)
+	} else {
+		if err := c.waitForResults(); err != nil {
+			log.Errorf("action: wait_for_results | result: fail | client_id: %v | error: %v", c.config.ID, err)
+		}
 	}
 
 	// Close connection before shutdown.
