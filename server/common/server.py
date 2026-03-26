@@ -2,6 +2,7 @@ import socket
 import logging
 import signal
 import time
+import threading
 from .network import send_ack, read_frame, send_nack, read_ack
 from .protocol import deserialize_batch, serialize_winners
 from .utils import store_bets, load_bets, has_won
@@ -13,11 +14,13 @@ class Server:
         self._server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self._server_socket.bind(('', port))
         self._server_socket.listen(listen_backlog)
-        self._server_socket.settimeout(5)
         self._client_sockets = {} # {agency_id: socket}
-        self._clients_ready = 0
         self._expected_clients = expected_clients
         self._running = True
+        # Concurrency
+        self._lock = threading.Lock()
+        self._barrier = threading.Barrier(expected_clients)
+        self._threads = []
 
 
     def shutdown_server(self, signum, frame):
@@ -27,6 +30,11 @@ class Server:
         logging.info("action: shutdown | result: in_progress")
         
         self._running = False
+
+        try:
+            self._barrier.abort()
+        except Exception as e:
+            logging.error(f"action: barrier_abort | result: fail | error: {e}")
 
         try:
             self._server_socket.close()
@@ -62,12 +70,9 @@ class Server:
             try:
                 client_sock = self.__accept_new_connection()
                 if client_sock:
-                    self.__handle_client_connection(client_sock)
-
-                    if self._clients_ready >= self._expected_clients:
-                        logging.info("action: sorteo | result: success")
-                        self.process_bets()
-                        self._running = False
+                    t = threading.Thread(target=self.__handle_client_connection, args=(client_sock,), daemon=False)
+                    t.start()
+                    self._threads.append(t)
 
             except socket.timeout:
                 logging.debug("action: accept_connections | result: timeout")
@@ -76,46 +81,53 @@ class Server:
             except OSError as e:
                 break
         
+        self._wait_threads()
         self.shutdown_server(None, None)
 
+    
+    def _wait_threads(self):
+        for t in self._threads:
+            if t.is_alive():
+                t.join()
 
-    def process_bets(self):
-        bets = load_bets()
-        winners_by_agency = {}
+    def process_bets(self, agency_id, client_sock):
+        with self._lock:
+            bets = load_bets()
 
-        for bet in bets:
-            if has_won(bet):
-                if bet.agency not in winners_by_agency:
-                    winners_by_agency[bet.agency] = []
-                winners_by_agency[bet.agency].append(bet)
+        winners = [b for b in bets if b.agency == agency_id and has_won(b)]
 
-        for agency_id, sock in list(self._client_sockets.items()):
-            winners = winners_by_agency.get(agency_id, [])
-            for i in range(0,3):
-                try:
-                    message = serialize_winners(winners)
-                except ValueError as e:
-                    logging.error(f"action: serialize_winners | result: fail | error: {e}")
+        try:
+            message = serialize_winners(winners)
+        except ValueError as e:
+            logging.error(f"action: serialize_winners | result: fail | error: {e}")
+            with self._lock:
+                self._client_sockets.pop(agency_id, None)
+            try:
+                client_sock.close()
+            except OSError as e:
+                pass
+            return
+
+        for i in range(3):
+
+            try:
+                client_sock.sendall(message)
+            except OSError as e:
+                logging.error(f"action: send_winners | result: fail | error: {e}")
+                break
+            
+            # Wait for Client ACK
+            try:
+                if read_ack(client_sock):
                     break
+                else:
+                    logging.error(f"action: read_ack | result: nack_received | agency_id: {agency_id}")
+                    time.sleep(1)
+                    continue
+            except OSError as e:
+                logging.error(f"action: read_ack | result: fail | error: {e}")
+                break
 
-                if agency_id in self._client_sockets:
-                    try:
-                        self._client_sockets[agency_id].sendall(message)
-                    except OSError as e:
-                        logging.error(f"action: send_winners | result: fail | error: {e}")
-                        continue
-                
-                # Wait for Client ACK
-                try:
-                    if read_ack(self._client_sockets[agency_id]):
-                        break
-                    else:
-                        logging.error(f"action: read_ack | result: nack_received | agency_id: {agency_id}")
-                        time.sleep(1)
-                        continue
-                except OSError as e:
-                    logging.error(f"action: read_ack | result: fail | error: {e}")
-                    break
         return
     
 
@@ -146,8 +158,33 @@ class Server:
         """Handle FIN frame. Return True to continue server loop, False to stop handler."""
         if not self._send_ack(client_sock):
             return False
-        self._clients_ready += 1
-        return True
+        
+        try:
+            # wait until all clients have sent FIN
+            self._barrier.wait()
+        except threading.BrokenBarrierError:
+            logging.error("action: barrier_wait | result: fail | error: BrokenBarrierError")
+            return False
+        
+        # find agency_id associated with this socket
+        with self._lock:
+            agency_id = None
+            for aid, s in self._client_sockets.items():
+                if s is client_sock:
+                    agency_id = aid
+                    break
+
+        if agency_id is None:
+            logging.warning("action: send_winners | result: skip | reason: unknown agency for socket")
+            return False
+        
+        self.process_bets(agency_id, client_sock)
+
+        with self._lock:
+            self._client_sockets.pop(agency_id, None)
+
+        return False  # after FIN, handler should stop
+
 
 
     def _handle_batch(self, payload: bytes, client_sock) -> bool:
