@@ -70,7 +70,6 @@ class Server:
                         self._running = False
 
             except socket.timeout:
-                logging.debug("action: accept_connections | result: timeout")
                 if not self._running:
                     self.shutdown_server(None, None)
                     break
