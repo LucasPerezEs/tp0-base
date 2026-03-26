@@ -71,8 +71,11 @@ class Server:
 
             except socket.timeout:
                 logging.debug("action: accept_connections | result: timeout")
-                self.shutdown_server(None, None)
-                break
+                if not self._running:
+                    self.shutdown_server(None, None)
+                    break
+                else:
+                    continue
             except OSError as e:
                 break
         
