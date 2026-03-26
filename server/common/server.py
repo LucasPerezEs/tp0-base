@@ -43,15 +43,19 @@ class Server:
         
         logging.info("action: closed server socket | result: success")
 
+        with self._lock:
+            sockets_snapshot = list(self._client_sockets.items())
+            self._client_sockets.clear() 
 
-        for _agency_id, _client_sock in self._client_sockets.items():
-            try: 
+        for _agency_id, _client_sock in sockets_snapshot:
+            try:
                 _client_sock.close()
+                logging.info("action: closed client socket | result: success")
             except OSError as e:
                 logging.error(f"action: closed client socket | result: fail | error: {e}")
-            
-            logging.info("action: closed client socket | result: success")
-        
+
+
+        self._wait_threads(timeout=5)
         logging.info("action: shutdown | result: success")
         
 
@@ -85,10 +89,16 @@ class Server:
         self.shutdown_server(None, None)
 
     
-    def _wait_threads(self):
+    def _wait_threads(self, timeout=None):
         for t in self._threads:
-            if t.is_alive():
-                t.join()
+            try:
+                if timeout is None:
+                    t.join()
+                else:
+                    t.join(timeout)
+            except RuntimeError as e:
+                logging.error(f"action: wait_threads | result: fail | error: {e}")
+                continue
 
     def process_bets(self, agency_id, client_sock):
         with self._lock:
@@ -149,9 +159,12 @@ class Server:
 
 
     def _register_socket(self, agency_id: int, sock) -> None:
+        if not agency_id:
+            return
         # store socket for later results if not present
-        if agency_id and agency_id not in self._client_sockets:
-            self._client_sockets[agency_id] = sock
+        with self._lock:
+            if agency_id and agency_id not in self._client_sockets:
+                self._client_sockets[agency_id] = sock
 
 
     def _handle_fin(self, client_sock) -> bool:
@@ -191,7 +204,7 @@ class Server:
         """Process batch payload. Return True to continue loop, False to stop handler."""
         agency_id, bets, err = deserialize_batch(payload)
         if err:
-            logging.error(f"action: apuesta_recibida | result: fail | cantidad: {len(bets)} | err:{err}")
+            logging.error(f"action: apuesta_recibida | result: fail |  err:{err}")
             if not self._send_nack(client_sock):
                 return False
             return True  # wait for resend
@@ -201,7 +214,8 @@ class Server:
 
         if bets:
             try:
-                store_bets(bets)
+                with self._lock:
+                    store_bets(bets)
                 logging.info(f"action: apuesta_recibida | result: success | cantidad: {len(bets)}")
             except Exception as e:
                 logging.error(f"action: store_bets | result: fail | error: {e}")
