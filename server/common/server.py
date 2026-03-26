@@ -80,13 +80,12 @@ class Server:
 
             except socket.timeout:
                 logging.debug("action: accept_connections | result: timeout")
-                self.shutdown_server(None, None)
                 break
             except OSError as e:
                 break
         
-        self._wait_threads()
         self.shutdown_server(None, None)
+        self._wait_threads()
 
     
     def _wait_threads(self, timeout=None):
@@ -261,12 +260,11 @@ class Server:
                     break
 
         finally:
-            if client_sock not in self._client_sockets.values():
-                try:
-                    client_sock.close()
-                except OSError as e:
-                    logging.error(f"action: closed client socket | result: fail | error: {e}")
-                logging.info("action: closed client socket | result: success")
+            try:
+                client_sock.close()
+            except OSError as e:
+                logging.error(f"action: closed client socket | result: fail | error: {e}")
+            logging.info("action: closed client socket | result: success")
             return
 
     def __accept_new_connection(self):
