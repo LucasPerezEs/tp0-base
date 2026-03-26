@@ -3,6 +3,65 @@
 - Alumno: Lucas Perez Esnaola
 - Padrón: 107990
 
+## Parte 1:
+### Ejercicio 1
+
+Para automatizar la creacion del docker compose se desarrollo un  script `generar-compose.sh` que llama a `compose_generator.py`, el cual se encarga de generar el archivo .yaml. Este consistira un servidor, N cantidad de clientes y una network.
+
+Para ejecutarlo, primero se necesitan permisos de ejecucion:
+
+`chmod +x ./generar-compose.sh`
+
+Luego, se puede ejecutar el script de la siguiente manera:
+
+`./generar-compose.sh <archivo de salida> <N>`
+
+Que generara el archivo docker compose con el nombre indicado y con la cantidad de clientes indicada.
+Ejemplo:
+
+`./generar-compose.sh docker-compose-dev.yaml 5`
+
+Luego, para ejecutar los contenedores, se ofrece un archivo Makefile que permite el siguiente comando:
+
+`make docker-compose-up`
+
+### Ejercicio 2
+Para persistir los archivos de configuracion de cliente y servidor, y poder modificarlos sin tener que reconstruir la imagen de docker, se utilizaron `docker volumnes` con formato Bind Mount. Estos sirven para inyectar archivos que viven en el host, en los contenedores docker.
+
+Se modifico el archivo de generacion `compose_generator.py` con las siguientes lineas:
+
+- `/client/config.yaml:/app/config.yaml:ro`: Se le inyecta al cliente el archivo de configuracion almacenado en un docker volume, de esta forma, el archivo de configuracion no vive en la imagen, sino en el host.
+- `./server/config.ini:/server/config.ini`: Lo mismo para el servidor, se le inyecta el archivo de configuracion en el host.
+
+De esta forma, no hace falta reconstruir la imagen de docker para modificar las configuraciones del cliente o el servidor.
+
+### Ejercicio 3
+Se implemento el archivo `validar-echo-server.sh` para verificar el correcto funcionamiento del servidor, utilizando el comando `netcat`.
+
+Para esto, el script levanta un contenedor temporal, conectado a la misma network a la que esta conectada el servidor, indicada con el flag `--network tp0_testing_net`.
+Luego, envia un mensaje al servidor a traves de la red utilizando `metcat`, y espera la respuesta. Si recibe lo mismo que envio, entonces se valido correctamente el echo server.
+
+Para ejecutarlo, primero se necesitan permisos de ejecucion:
+
+`chmod +x ./validar-echo-server.sh`
+
+Luego, hay que ejecutar los contenedores con:
+
+`make docker-compose-up`
+
+Por ultimo, se ejecuta el script con:
+`./validar-echo-server.sh`
+
+### Ejercicio 4
+Para que tanto cliente como servidor manejen la señal SIGTERM y finalizen de forma ordenada, se utilizaron las librerias estandar de manejo de signals.
+
+Para el servidor, se utilizo la libreria `signal`, que mediante la siguiente linea `signal.signal(signal.SIGTERM, self.shutdown_server)` permite detectar la señal indicada y responder con la funcion pasada como argumento. En la funcion shutdown, el servidor cierra los sockets de clientes abiertos, su propio socket y sale ordenadamente.
+
+Para el cliente, se utilizaron las librerias `os/signal` y `syscall`. Primero se crea un canal por donde se recibira la señal, y se crea el cliente con una referencia a ese canal. En cada iteracion del cliente, se realiza una verificacion al canal para detectar si llego una señal SIGTERM, y en ese caso se corta la ejecucion.
+
+El manejo de la señal SIGTERM es muy util al utilizar docker, ya que es la señal que se envia al realizar `docker compose down`.
+
+
 ## Parte 2: Repaso de Comunicaciones
 
 ### Ejercicio 5
